@@ -1,0 +1,6 @@
+{
+    "sketch": "arduino-keylock.ino",
+    "board": "arduino:avr:uno",
+    "programmer": "arduino:avrispmkii",
+    "port": "COM3"
+}
