@@ -3,6 +3,7 @@
 
 #define GREEN 13
 #define RED 12
+#define ZOOMER 6
 
 const byte ROWS = 4; //число строк у нашей клавиатуры
 const byte COLS = 3; //число столбцов у нашей клавиатуры
@@ -24,6 +25,9 @@ LiquidCrystal_I2C lcd (0x27, 20, 4);
 String key = "1234";
 String enteringPassword = "";
 
+volatile unsigned long globalTimeBufferMillis = 0;
+
+
 void setup(){
 
   Serial.begin(9600);
@@ -40,20 +44,18 @@ void setup(){
 
 //   Serial.println(key);
 //   Serial.println(key.substring(0, key.length() - 1));
+    tryToOpen();
 
 }
 
 
 
 void loop(){
-    tryToOpen();
 }
 
 void tryToOpen() {
 
     openUsingKeypad();
-
-
 
 }
 String pass = "";
@@ -66,30 +68,28 @@ void openUsingKeypad() {
         if (customKey) {
             if (customKey == 'A') {
                 enteryPoint = !enteryPoint;
-            } 
-            else if (customKey == 'C') {
+                tone(ZOOMER, 220, 50);
+            } else if (customKey == 'C') {
                 enteringPassword = enteringPassword.substring(0, enteringPassword.length() - 1);
+                tone(ZOOMER, 220, 50);
                 drawPassword();
             } else  {
                 enteringPassword += customKey;
+                tone(ZOOMER, 220, 50);
                 drawPassword();
             }
         }
     }
 
     if (enteringPassword == key) {
-        drawConfirm();
-        openLock();
-    } else {
+        confirmed();
+        
+    } else if (enteringPassword != key){
+        denied();
         drawIncorrectPassword();         
     }
 
     enteringPassword = "";
-}
-
-void drawCodeHeader() {
-    lcd.setCursor(0, 0);
-    lcd.print("Enter your password:");
 }
 
 void drawPassword() {
@@ -99,7 +99,21 @@ void drawPassword() {
     lcd.print(enteringPassword);
 }
 
+void drawCodeHeader() {
+    lcd.setCursor(0, 0);
+    lcd.print("Enter your password:");
+}
+
+void confirmed() {
+    drawConfirm();
+    openLock();
+    confirmSound();
+}
+
+
+
 void drawConfirm() {
+    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Password confirmed");
 }
@@ -109,7 +123,42 @@ void openLock() {
     digitalWrite(RED, 0); 
 }
 
+void confirmSound() {
+    tone(ZOOMER, 220, 100);
+    improvedDelay(200);
+    tone(ZOOMER, 220, 100);
+    improvedDelay(200);
+    tone(ZOOMER, 220, 100);
+}
+
+void denied() {
+    drawIncorrectPassword();
+    deniedSound();
+}
+
 void drawIncorrectPassword() {
+    digitalWrite(GREEN, 0);  
+    digitalWrite(RED, 1); 
+    
+    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Password denied");
+}
+
+void deniedSound() {
+    tone(ZOOMER, 320, 100);
+    improvedDelay(200);
+    tone(ZOOMER, 320, 100);
+    improvedDelay(200);
+    tone(ZOOMER, 320, 100);
+}
+
+void improvedDelay(unsigned int waitTime) {
+    globalTimeBufferMillis = millis();
+    boolean cooldownState = true;
+
+    while (cooldownState) {
+        if (millis() - globalTimeBufferMillis > waitTime) 
+            cooldownState = false;
+    }
 }
