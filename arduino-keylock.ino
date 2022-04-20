@@ -1,45 +1,115 @@
 #include <Keypad.h>
+#include <LiquidCrystal_I2C.h>
+
+#define GREEN 13
+#define RED 12
 
 const byte ROWS = 4; //число строк у нашей клавиатуры
-const byte COLS = 4; //число столбцов у нашей клавиатуры
+const byte COLS = 3; //число столбцов у нашей клавиатуры
 char hexaKeys[ROWS][COLS] = {// здесь мы располагаем названия наших клавиш, как на клавиатуре,для удобства пользования
-{'1','4','7','d'}, 
-{'2','5','8','0'},
-{'3','6','9','#'},
-{'A','B','C','D'}
+{'1','4','7'}, 
+{'2','5','8'},
+{'3','6','9'},
+{'A','0','C'}
 };
 
 byte rowPins[ROWS] = {5, 4, 3, 2}; //к каким выводам подключаем управление строками
-byte colPins[COLS] = {9, 8, 7, 6}; //к каким выводам подключаем управление столбцами
+byte colPins[COLS] = {9, 8, 7}; //к каким выводам подключаем управление столбцами
 
 //передаем все эти данные библиотеке:
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
+LiquidCrystal_I2C lcd (0x27, 20, 4);
+
+String key = "1234";
+String enteringPassword = "";
+
 void setup(){
-  Serial.begin(9600);//запускаем отладочный вывод в монитор порта
 
-  pinMode(10, OUTPUT);
+  Serial.begin(9600);
+    lcd.init();
+    lcd.backlight();
+    lcd.setCursor(0, 0);
+    lcd.print("Choose password type");
 
-  digitalWrite(10, 0);
+    pinMode(GREEN, OUTPUT);
+    pinMode(RED, OUTPUT);
+
+    digitalWrite(GREEN, 0);  
+    digitalWrite(RED, 1);  
+
+//   Serial.println(key);
+//   Serial.println(key.substring(0, key.length() - 1));
 
 }
 
-String key = "1234";
-String enteringKey = "";
+
 
 void loop(){
-    char customKey = customKeypad.getKey();//записывем нажатый символ
+    tryToOpen();
+}
 
-    if ()
-    
-    if (customKey){//если что-то нажато
-    enteringKey += customKey;
+void tryToOpen() {
+
+    openUsingKeypad();
+
+
+
+}
+String pass = "";
+void openUsingKeypad() {
+    lcd.clear();
+    drawCodeHeader();
+    boolean enteryPoint = true;
+    while (enteryPoint) {
+        char customKey = customKeypad.getKey();
+        if (customKey) {
+            if (customKey == 'A') {
+                enteryPoint = !enteryPoint;
+            } 
+            else if (customKey == 'C') {
+                enteringPassword = enteringPassword.substring(0, enteringPassword.length() - 1);
+                drawPassword();
+            } else  {
+                enteringPassword += customKey;
+                drawPassword();
+            }
+        }
     }
 
-    if (enteringKey == key) {
-        digitalWrite(10, 1);
+    if (enteringPassword == key) {
+        drawConfirm();
+        openLock();
     } else {
-        digitalWrite(10, 0);
+        drawIncorrectPassword();         
     }
-    Serial.println(enteringKey);
+
+    enteringPassword = "";
+}
+
+void drawCodeHeader() {
+    lcd.setCursor(0, 0);
+    lcd.print("Enter your password:");
+}
+
+void drawPassword() {
+    lcd.clear();
+    drawCodeHeader();
+    lcd.setCursor(0, 1);
+    lcd.print(enteringPassword);
+}
+
+void drawConfirm() {
+    lcd.setCursor(0, 0);
+    lcd.print("Password confirmed");
+}
+
+void openLock() {
+    digitalWrite(GREEN, 1);  
+    digitalWrite(RED, 0); 
+}
+
+void drawIncorrectPassword() {
+    lcd.setCursor(0, 0);
+    lcd.print("Password denied");
 }
