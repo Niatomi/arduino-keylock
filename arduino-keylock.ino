@@ -3,19 +3,18 @@
 
 #define GREEN 13
 #define RED 12
-#define ZOOMER 6
+#define ZOOMER 2
 
-const byte ROWS = 4; //число строк у нашей клавиатуры
-const byte COLS = 3; //число столбцов у нашей клавиатуры
+const byte ROWS = 3; //число строк у нашей клавиатуры
+const byte COLS = 4; //число столбцов у нашей клавиатуры
 char hexaKeys[ROWS][COLS] = {// здесь мы располагаем названия наших клавиш, как на клавиатуре,для удобства пользования
-{'1','4','7'}, 
-{'2','5','8'},
-{'3','6','9'},
-{'A','0','C'}
+{'1','2','3','A'}, 
+{'4','5','6','0'},
+{'7','8','9','C'}
 };
 
-byte rowPins[ROWS] = {5, 4, 3, 2}; //к каким выводам подключаем управление строками
-byte colPins[COLS] = {9, 8, 7}; //к каким выводам подключаем управление столбцами
+byte rowPins[ROWS] = {5, 4, 3}; //к каким выводам подключаем управление строками
+byte colPins[COLS] = {9, 8, 7, 6}; //к каким выводам подключаем управление столбцами
 
 //передаем все эти данные библиотеке:
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
@@ -42,8 +41,6 @@ void setup(){
     digitalWrite(GREEN, 0);  
     digitalWrite(RED, 1);  
 
-//   Serial.println(key);
-//   Serial.println(key.substring(0, key.length() - 1));
     tryToOpen();
 
 }
