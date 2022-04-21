@@ -5,31 +5,27 @@
 #define RED 12
 #define ZOOMER 2
 
-const byte ROWS = 3; //число строк у нашей клавиатуры
-const byte COLS = 4; //число столбцов у нашей клавиатуры
-char hexaKeys[ROWS][COLS] = {// здесь мы располагаем названия наших клавиш, как на клавиатуре,для удобства пользования
+// Keypad init
+const byte ROWS = 3; 
+const byte COLS = 4; 
+char hexaKeys[ROWS][COLS] = {
 {'1','2','3','A'}, 
 {'4','5','6','0'},
 {'7','8','9','C'}
 };
-
-byte rowPins[ROWS] = {5, 4, 3}; //к каким выводам подключаем управление строками
-byte colPins[COLS] = {9, 8, 7, 6}; //к каким выводам подключаем управление столбцами
-
-//передаем все эти данные библиотеке:
+byte rowPins[ROWS] = {5, 4, 3}; 
+byte colPins[COLS] = {9, 8, 7, 6}; 
 Keypad customKeypad = Keypad( makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
+// LCD init
 LiquidCrystal_I2C lcd (0x27, 20, 4);
-
-String key = "1234";
-String enteringPassword = "";
 
 volatile unsigned long globalTimeBufferMillis = 0;
 
-
 void setup(){
 
-  Serial.begin(9600);
+    Serial.begin(9600);
+
     lcd.init();
     lcd.backlight();
     lcd.setCursor(0, 0);
@@ -37,7 +33,6 @@ void setup(){
 
     pinMode(GREEN, OUTPUT);
     pinMode(RED, OUTPUT);
-
     digitalWrite(GREEN, 0);  
     digitalWrite(RED, 1);  
 
@@ -45,26 +40,26 @@ void setup(){
 
 }
 
-
-
-void loop(){
-}
+void loop() {}
 
 void tryToOpen() {
-
     openUsingKeypad();
-
 }
+
 String pass = "";
+String key = "1234";
+String enteringPassword = "";
+
 void openUsingKeypad() {
+    
     lcd.clear();
     drawCodeHeader();
-    boolean enteryPoint = true;
-    while (enteryPoint) {
+
+    while (true) {
         char customKey = customKeypad.getKey();
         if (customKey) {
             if (customKey == 'A') {
-                enteryPoint = !enteryPoint;
+                break;
                 tone(ZOOMER, 220, 50);
             } else if (customKey == 'C') {
                 enteringPassword = enteringPassword.substring(0, enteringPassword.length() - 1);
@@ -80,13 +75,17 @@ void openUsingKeypad() {
 
     if (enteringPassword == key) {
         confirmed();
-        
     } else if (enteringPassword != key){
         denied();
         drawIncorrectPassword();         
     }
 
     enteringPassword = "";
+}
+
+void drawCodeHeader() {
+    lcd.setCursor(0, 0);
+    lcd.print("Enter your password:");
 }
 
 void drawPassword() {
@@ -96,18 +95,12 @@ void drawPassword() {
     lcd.print(enteringPassword);
 }
 
-void drawCodeHeader() {
-    lcd.setCursor(0, 0);
-    lcd.print("Enter your password:");
-}
 
 void confirmed() {
     drawConfirm();
     openLock();
     confirmSound();
 }
-
-
 
 void drawConfirm() {
     lcd.clear();
