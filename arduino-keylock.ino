@@ -1,11 +1,17 @@
+#include <SPI.h>
 #include <Keypad.h>
+#include <MFRC522.h>
 #include <LiquidCrystal_I2C.h>
 
-#define GREEN 12
-#define RED 11
+#define GREEN A0
+#define RED A1
 #define ZOOMER 10 
 #define HALL 2
-#define KY A3
+#define SS_PIN A2
+#define RST_PIN A3
+
+// RFID init
+MFRC522 mfrc522(SS_PIN, RST_PIN);
 
 // Keypad init
 const byte ROWS = 3; 
@@ -66,14 +72,26 @@ void setup(){
     lcd.createChar(2,filledSpace);
     lcd.createChar(3,unFilledSpace);
 
+    SPI.begin();
+    mfrc522.PCD_Init();
+
     pinMode(GREEN, OUTPUT);
     pinMode(RED, OUTPUT);
+
     doorIsOpened();
 
-    attachInterrupt(0, doorAction, FALLING);
-  
-    // tryToOpen();
+    attachInterrupt(0, doorAction, CHANGE);
+    // openUsingRFID();
 
+
+    // sendPasswordOnCheck("1234", "keypad");
+  
+}
+
+void loop() {
+    openMenu();
+    // delay(1000);
+    // Serial.println(mfrc522.PICC_IsNewCardPresent());
 }
 
 void doorAction() {
@@ -84,7 +102,7 @@ void doorAction() {
         Serial.println("Attention");
         doorIsOpened();
     }
-    waitMicros();
+    // waitMicros();
 }
 
 void waitMicros() {
@@ -101,22 +119,18 @@ void waitMicros() {
     }
 }
 
-boolean doorIsOpened() {
+void doorIsOpened() {
     if (digitalRead(HALL)) {
         digitalWrite(GREEN, 0);  
         digitalWrite(RED, 1);
-        return false;
+        // return false;
     } else {
         digitalWrite(GREEN, 1);  
         digitalWrite(RED, 0);
-        return true;
+        // return true;
     }
 }
 
-void loop() {
-    openMenu();
-    delay(1000);
-}
 
 void openMenu() {
     drawMenu();
@@ -140,25 +154,10 @@ void drawMenuHeader() {
 }
 
 void drawMenu() {
-    lcd.setCursor(0, 0);
-    lcd.print("Choose password type");
-
-    lcd.setCursor(0, 1);
-    for (int i = 0; i < 20; i++) {
-        lcd.print("-");
-    }
-
-    lcd.setCursor(0, 2);
-    lcd.print("^");
-
-    lcd.setCursor(0, 3);
-    lcd.write(1);
-
+    drawMenuHeader();
     keyAndRFIDScene();
-
     lcd.setCursor(1, 2);
     lcd.blink_on();
-    
 }
 
 void keyAndRFIDScene() {
@@ -214,6 +213,7 @@ void listenKeyboardAndChanegeLcd() {
                     return;
                 } else if (type == 3) {
                     openUsingRFID();
+                    lcd.blink_on();
                     return;
                 } else if (type == 4) {
                     openSettings();
@@ -237,8 +237,39 @@ void listenKeyboardAndChanegeLcd() {
 
 }
 
-void openUsingRFID() {}
+void drawRFID() {
 
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Bring your RFID");
+    lcd.blink_off();
+}
+
+void openUsingRFID() {
+
+    drawRFID();
+
+    while (true) {
+    // Serial.println("buffer");
+
+        while (true) {
+            if ( ! mfrc522.PICC_IsNewCardPresent())
+                break;
+
+            if ( !mfrc522.PICC_ReadCardSerial())
+                break;
+            
+            String buffer = "";
+            for (byte i = 0; i < 4; i++) {
+                buffer += mfrc522.uid.uidByte[i];
+            }
+            applyPassword(sendPasswordOnCheck(buffer, "RFID"));
+            
+            return;
+        }
+    
+    }
+}
 
 
 void openSettings() {
@@ -264,10 +295,8 @@ void drawMenuSettings() {
     lcd.setCursor(2, 2);
     lcd.print("Sound");
 
-    lcd.setCursor(0, 3);
-    lcd.print("Update configuration");
-
     lcd.setCursor(1, 1);
+
 }
 
 void listenKeyboardOnSettings() {
@@ -277,11 +306,11 @@ void listenKeyboardOnSettings() {
         if (customKey) {
             if (customKey == '2') {
                 if (typeSetting == 1) {
-                    typeSetting = 3;
+                    typeSetting = 2;
                 } else {
                     typeSetting--;
                 }
-                setSettingsCursor(typeSetting);
+                lcd.setCursor(1, typeSetting);
             } else if (customKey == '5') {
                 if (typeSetting == 1) {
                     showPassword = !showPassword;
@@ -291,32 +320,20 @@ void listenKeyboardOnSettings() {
                     sound = !sound;
                     printSuccesSettingsUpdate();
                     return;
-                } else if (typeSetting == 3) {
-                    updateConfiguration();
                 }
             } else if (customKey == '8') {
-                if (typeSetting == 3) {
+                if (typeSetting == 2) {
                     typeSetting = 1;
                 } else {
                     typeSetting++;
                 }
-                setSettingsCursor(typeSetting);
+                lcd.setCursor(1, typeSetting);
             } else if (customKey == 'C') {
                 return;
             }
         }
     }
 }
-
-void setSettingsCursor(byte typeSettings) {
-    if (typeSettings == 3) {
-        lcd.setCursor(0, typeSettings);
-    } else {
-        lcd.setCursor(1, typeSettings);
-    }
-}
-
-void updateConfiguration() {}
 
 void printSuccesSettingsUpdate() {
     lcd.clear();
@@ -347,10 +364,6 @@ void drawScene(byte type, boolean isPrevious) {
     
 }
 
-void tryToOpen() {
-    openUsingKeypad();
-}
-
 String pass = "";
 String key = "";
 String enteringPassword = "";
@@ -378,43 +391,53 @@ void openUsingKeypad() {
             }
         }
     }
-    
-    checkOnEsp(enteringPassword);
 
-    checkPassword(enteringPassword);
+    applyPassword(sendPasswordOnCheck(enteringPassword, "keypad"));
 
     enteringPassword = "";
 }
 
-char constPassword[71]; 
 
-void checkOnEsp(String enteringPassword) {
+char constPassword[71]; 
+boolean sendPasswordOnCheck(String enteringPassword, String type) {
     for (int i = 0; i < sizeof(constPassword); i++) {
         constPassword[i] = '-';
     }
 
-    String sendingData = "check:keys:" + enteringPassword;
+    String sendingData = "check:" + type + ":" + enteringPassword;
     
     for (int i = 0; i < sendingData.length(); i++) {
         constPassword[i] = sendingData.charAt(i);
     }
     Serial.write(constPassword);
-}
+    // Serial.flush();
+    improvedDelay(300);
+    while (true) {
+        
+        if (Serial.available()) {
+            String isRight = Serial.readStringUntil('-'); 
+            
+            Serial.println(isRight);
 
-void checkPassword(String enteredPassword) {
-    if (enteredPassword == key) {
-        confirmed();
-    } else {
-        key = getPasswords();
-        if (enteredPassword == key) {
-            confirmed();
-            detachInterrupt(0);
-            improvedDelay(30000);
-            attachInterrupt(0, doorAction, FALLING);
-        } else {
-            denied();
+            if (isRight == "1") {
+                return true;
+            } else {
+                return false;
+            }
         }
     }
+}
+
+void applyPassword(boolean passwordIsRight) {
+
+    if (passwordIsRight) {
+        confirmed();
+        detachInterrupt(0);
+        improvedDelay(30000);
+        attachInterrupt(0, doorAction, CHANGE);
+    } else {
+        denied();
+    } 
 }
 
 String getPasswords() {
